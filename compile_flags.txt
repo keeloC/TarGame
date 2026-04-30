@@ -1,0 +1,1 @@
+-I/opt/sfml2/include
