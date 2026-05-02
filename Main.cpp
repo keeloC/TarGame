@@ -19,6 +19,7 @@ int main() {
   float playerY = FilaP * rectHeight - playerSize;
 
   // Física
+
   float gravedad = 0.004f;
   float velocidadY = 0.f;
   float velocidadSalto = 1.f;
