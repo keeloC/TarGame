@@ -2,9 +2,30 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
 
+class Pico {
+public:
+  float Velminado = 1.f;
+  int Nivelminado = 1.f;
+};
+
 int main() {
+
+  // pico
+
+  Pico objeto;
+
+  objeto.Velminado = 1.f;
+  objeto.Nivelminado = 1;
+
   sf::RenderWindow window(sf::VideoMode(800, 600), "My Window");
   sf::View view(sf::FloatRect(0, 0, 800, 600));
+
+  sf::Font font;
+  if (!font.loadFromFile(
+          "/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
+    return -1;
+
+  sf::View uiView(sf::FloatRect(0, 0, 800, 600));
 
   float playerSize = 10.f;
   float rectWidth = 32.f;
@@ -28,7 +49,7 @@ int main() {
   // Time of mining
 
   sf::Clock MinaT;
-  float tiempodeminado = 1.f;
+
   int minaCol = -1;
   int minaRow = -1;
 
@@ -55,6 +76,31 @@ int main() {
 
   saltoClock.restart();
 
+  // Picos Textura
+
+  sf::Texture picotextura;
+  if (!picotextura.loadFromFile("models/Pico.png"))
+    return -1;
+  sf::Sprite picoSprite(picotextura);
+
+  // Personaje Textura
+
+  sf::Texture personajeTextura;
+  if (!personajeTextura.loadFromFile("models/Personaje.png"))
+    return -1;
+  sf::Sprite personajeSprite(personajeTextura);
+
+  personajeSprite.setTextureRect(sf::IntRect(0, 0, 32, 32));
+
+  // anims
+
+  sf::Clock animClock;
+  int frameActual = 0;
+
+  std::map<int, int> inventario;
+
+  // While
+
   while (window.isOpen()) {
     sf::Event event;
     while (window.pollEvent(event)) {
@@ -62,9 +108,23 @@ int main() {
         window.close();
     }
 
+    if (animClock.getElapsedTime().asSeconds() >= 0.2f) {
+      if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) ||
+          sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+        frameActual = (frameActual + 1) % 4;
+      }
+
+      animClock.restart();
+    }
+
+    int col = frameActual % 2;
+    int fila = frameActual / 2;
+
+    personajeSprite.setTextureRect(sf::IntRect(col * 32, fila * 32, 32, 32));
+
     // Minería
     sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
-    sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos);
+    sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos, view);
 
     int bloqueCol = static_cast<int>(worldPos.x / rectWidth);
     int bloqueRow = static_cast<int>(worldPos.y / rectHeight);
@@ -80,8 +140,13 @@ int main() {
           minaRow = bloqueRow;
         }
 
-        if (MinaT.getElapsedTime().asSeconds() >= tiempodeminado) {
-          mundo[bloqueRow][bloqueCol] = 0;
+        if (MinaT.getElapsedTime().asSeconds() >= objeto.Velminado) {
+          if (objeto.Nivelminado >= mundo[bloqueRow][bloqueCol]) {
+            int tipoBloque = mundo[bloqueRow][bloqueCol];
+            mundo[bloqueRow][bloqueCol] = 0;
+            inventario[tipoBloque]++;
+          }
+
           minaCol = -1;
           minaRow = -1;
         }
@@ -176,7 +241,7 @@ int main() {
 
     // Jugador
     sf::RectangleShape player(sf::Vector2f(playerSize, playerSize));
-    player.setPosition(playerPos);
+    personajeSprite.setPosition(playerPos.x - 10.f, playerPos.y - 20.f);
     player.setFillColor(sf::Color::Red);
 
     // Cámara
@@ -210,8 +275,20 @@ int main() {
         window.draw(rect);
       }
     }
+    picoSprite.setPosition(playerPos.x + playerSize,
+                           playerPos.y - playerSize * 4);
+    window.draw(picoSprite);
 
-    window.draw(player);
+    window.draw(personajeSprite);
+    window.setView(uiView);
+
+    sf::Text texto;
+    texto.setFont(font);
+    texto.setCharacterSize(16);
+    texto.setFillColor(sf::Color::White);
+    texto.setString("Tierra: " + std::to_string(inventario[1]));
+    texto.setPosition(10, 10);
+    window.draw(texto);
     window.display();
   }
 }
