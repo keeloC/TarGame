@@ -8,7 +8,7 @@
 
 class Pala {
 public:
-  float PVelminado = 1.f;
+  float PVelminado = 0.3f;
   int Pnivelminado = 1.f;
 };
 
@@ -33,7 +33,7 @@ int main() {
   // herramientas
   Pala objeto2;
 
-  objeto2.PVelminado = 0.5f;
+  objeto2.PVelminado = 0.1f;
   objeto2.Pnivelminado = 1;
 
   Pico objeto;
@@ -72,7 +72,6 @@ int main() {
   float VelMaxDown = 0.5f;
 
   // Time of mining
-
   sf::Clock MinaT;
 
   int minaCol = -1;
