@@ -6,9 +6,15 @@
 
 // herramientas
 
+class Puño {
+public:
+  float PuñoVelminado = 1.f;
+  int PuñoNivelMinado = 1.f;
+};
+
 class Pala {
 public:
-  float PVelminado = 0.3f;
+  float PVelminado = 1.f;
   int Pnivelminado = 1.f;
 };
 
@@ -31,10 +37,16 @@ Slot hotbar[9];
 int main() {
 
   // herramientas
+
+  Puño objeto1;
+
+  objeto1.PuñoVelminado = 1.f;
+  objeto1.PuñoNivelMinado = 4.f;
+
   Pala objeto2;
 
-  objeto2.PVelminado = 0.1f;
-  objeto2.Pnivelminado = 1;
+  objeto2.PVelminado = 0.5f;
+  objeto2.Pnivelminado = 5;
 
   Pico objeto;
 
@@ -51,6 +63,8 @@ int main() {
 
   sf::View uiView(sf::FloatRect(0, 0, 800, 600));
 
+  // Tamaños
+
   float HitboxSize = 10.f;
   float rectWidth = 32.f;
   float rectHeight = 35.f;
@@ -59,16 +73,20 @@ int main() {
   int FilaP = 14;
   int FilaPiedra = 28;
 
-  float playerSpeed = 0.3f;
+  float playerSpeed = 0.1f;
 
-  float playerX = 800.f / 2.f - HitboxSize / 2.f;
+  const int FILAS = 50;
+  const int COLS = 400;
+  int mundo[FILAS][COLS];
+
+  float playerX = (COLS / 2) * rectWidth;
   float playerY = FilaP * rectHeight - HitboxSize + 20;
 
   // Física
 
-  float gravedad = 0.004f;
+  float gravedad = 0.0038f;
   float velocidadY = 0.f;
-  float velocidadSalto = 1.f;
+  float velocidadSalto = 0.68f;
   float VelMaxDown = 0.5f;
 
   // Time of mining
@@ -85,22 +103,24 @@ int main() {
 
   sf::Vector2f playerPos(playerX, playerY);
 
-  const int FILAS = 50;
-  const int COLS = 200;
-  int mundo[FILAS][COLS];
-
   // Generación mundo
   for (int i = 0; i < FILAS; ++i) {
     for (int j = 0; j < COLS; ++j) {
       if (i >= FilaPiedra)
         mundo[i][j] = 2;
-      else if (i >= FilaP)
+      else if (i == FilaP) {
+        mundo[i][j] = 5;
+      } else if (i >= FilaP)
         mundo[i][j] = 1;
       else
         mundo[i][j] = 0;
 
-      if ((i >= 9 && i <= 12) && j % 5 == 0) {
+      if ((i >= 8 && i <= 13) && j % 7 == 0) {
         mundo[i][j] = 3;
+      }
+      if ((i >= 5 && i <= 9) && (j % 7 == 0 || j % 7 == 1 || j % 7 == 6 ||
+                                 j % 7 == 5 || j % 7 == 2)) {
+        mundo[i][j] = 4;
       }
     }
   }
@@ -189,6 +209,15 @@ int main() {
   MaderaSprite.setScale(rectWidth / Madera.getSize().x,
                         rectHeight / Madera.getSize().y);
 
+  // Hoja
+
+  sf::Texture Hoja;
+  if (!Hoja.loadFromFile("models/Hoja.png"))
+    return -1;
+  sf::Sprite HojaSprite(Hoja);
+  HojaSprite.setScale(rectWidth / Hoja.getSize().x,
+                      rectHeight / Hoja.getSize().y);
+
   // anims
 
   sf::Clock animClock;
@@ -264,15 +293,15 @@ int main() {
           bool puedeMinar = false;
 
           // Lógica de permisos:
-          if (herramientaActual == 2) { // Si es el PICO
+          if (herramientaActual == 2) {
             if (tipoBloque == 2)
-              puedeMinar = true;               // Solo mina PIEDRA (tipo 2)
-          } else if (herramientaActual == 3) { // Si es la PALA
-            if (tipoBloque == 1)
-              puedeMinar = true;               // Solo mina TIERRA (tipo 1)
-          } else if (herramientaActual == 1) { // Si es el PUÑO (opcional)
-            if (tipoBloque == 1)
-              puedeMinar = true; // Por ejemplo, solo madera
+              puedeMinar = true;
+          } else if (herramientaActual == 3) {
+            if (tipoBloque == 1 || tipoBloque == 5)
+              puedeMinar = true;
+          } else if (herramientaActual == 1) {
+            if (tipoBloque == 3 || tipoBloque == 4)
+              puedeMinar = true;
           }
 
           // Si tiene permiso y el nivel es suficiente
@@ -315,8 +344,12 @@ int main() {
 
     for (int i = filaArriba; i <= filaAbajo; ++i) {
       if (i >= 0 && i < FILAS) {
-        if ((colIzq >= 0 && colIzq < COLS && mundo[i][colIzq] > 0) ||
-            (colDer >= 0 && colDer < COLS && mundo[i][colDer] > 0)) {
+        if ((colIzq >= 0 && colIzq < COLS &&
+             (mundo[i][colIzq] == 1 || mundo[i][colIzq] == 2 ||
+              mundo[i][colIzq] == 5)) ||
+            (colDer >= 0 && colDer < COLS &&
+             (mundo[i][colDer] == 1 || mundo[i][colDer] == 2 ||
+              mundo[i][colDer] == 5))) {
           colisionX = true;
           break;
         }
@@ -358,8 +391,12 @@ int main() {
     // Colisión vertical (subida)
     else if (velocidadY < 0) {
       if (topRow >= 0 && topRow < FILAS) {
-        if ((colIzq >= 0 && colIzq < COLS && mundo[topRow][colIzq] > 0) ||
-            (colDer >= 0 && colDer < COLS && mundo[topRow][colDer] > 0)) {
+        if ((colIzq >= 0 && colIzq < COLS &&
+             (mundo[topRow][colIzq] == 1 || mundo[topRow][colIzq] == 2 ||
+              mundo[bottomRow][colIzq] == 5)) ||
+            (colDer >= 0 && colDer < COLS &&
+             (mundo[topRow][colDer] == 1 || mundo[topRow][colDer] == 2 ||
+              mundo[bottomRow][colIzq] == 5))) {
 
           playerPos.y = (topRow + 1) * rectHeight;
           velocidadY = 0;
@@ -404,6 +441,8 @@ int main() {
     int filaFin =
         std::min(FILAS, (int)((view.getCenter().y + 300) / rectHeight) + 1);
 
+    // Agregar el sprite a el bloque
+
     for (int i = filaInicio; i < filaFin; ++i) {
       for (int j = colInicio; j < colFin; ++j) {
         sf::RectangleShape rect(sf::Vector2f(rectWidth, rectHeight));
@@ -411,12 +450,18 @@ int main() {
         if (mundo[i][j] == 1) {
           TierraSprite.setPosition(j * rectWidth, i * rectHeight);
           window.draw(TierraSprite);
+        } else if (mundo[i][j] == 5) { // <--- AÑADE ESTO
+          Tierra2Sprite.setPosition(j * rectWidth, i * rectHeight);
+          window.draw(Tierra2Sprite);
         } else if (mundo[i][j] == 2) {
           RocaSprite.setPosition(j * rectWidth, i * rectHeight);
           window.draw(RocaSprite);
         } else if (mundo[i][j] == 3) {
           MaderaSprite.setPosition(j * rectWidth, i * rectHeight);
           window.draw(MaderaSprite);
+        } else if (mundo[i][j] == 4) {
+          HojaSprite.setPosition(j * rectWidth, i * rectHeight);
+          window.draw(HojaSprite);
         }
       }
     }
@@ -424,8 +469,8 @@ int main() {
     // herramientas en slot
 
     if (hotbar[slotSeleccionado].tipo == 1) {
-      nivelActual = 1;
-      velActual = 10.f;
+      nivelActual = objeto1.PuñoNivelMinado;
+      velActual = objeto1.PuñoVelminado;
     }
 
     if (hotbar[slotSeleccionado].tipo == 2) {
@@ -437,7 +482,7 @@ int main() {
     }
     if (hotbar[slotSeleccionado].tipo == 3) {
       nivelActual = objeto2.Pnivelminado;
-      velActual = objeto2.Pnivelminado;
+      velActual = objeto2.PVelminado;
       PalaSprite.setPosition(playerPos.x + HitboxSize,
                              playerPos.y - HitboxSize * 4);
       window.draw(PalaSprite);
