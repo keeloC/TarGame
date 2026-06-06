@@ -1,13 +1,14 @@
+#include "SFML/Graphics/Texture.hpp"
 #include <SFML/Graphics.hpp>
 #include <algorithm>
 #include <map>
 #include <math.h>
 #include <string>
-//
-class Puño {
+
+class Pu {
 public:
-  float PuñoVelminado = 1.f;
-  int PuñoNivelMinado = 1;
+  float PuVelminado;
+  float PuNivelminado;
 };
 
 class Pala {
@@ -28,7 +29,29 @@ public:
   int cantidad = 0;
 };
 
+class Arrastre {
+public:
+  enum OrigenArrastre { HOTBAR, INVENTARIO, ALQUIMIA };
+  OrigenArrastre origen;
+  bool arrastrando = false;
+  int slotOrigen = -1;
+  Slot itemArrastrado;
+};
+
+Arrastre estadoArrastre;
+
+float anchoVentana = 800.f;
+float altoVentana = 600.f;
+
+float alqX = 0.f;
+float alqY = 0.f;
+float alqSlotSize = 35.f;
+float invX = 0.f;
+float invY = 0.f;
+float invSlotSize = 34.f;
+
 Slot hotbar[9];
+Slot inventarioSlots[36];
 
 bool añadirAHotbar(int tipoItem) {
   for (int i = 0; i < 9; ++i) {
@@ -41,6 +64,23 @@ bool añadirAHotbar(int tipoItem) {
     if (hotbar[i].tipo == 0) {
       hotbar[i].tipo = tipoItem;
       hotbar[i].cantidad = 1;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool añadirAInventario(int tipoItem) {
+  for (int i = 0; i < 36; ++i) {
+    if (inventarioSlots[i].tipo == tipoItem) {
+      inventarioSlots[i].cantidad++;
+      return true;
+    }
+  }
+  for (int i = 0; i < 36; ++i) {
+    if (inventarioSlots[i].tipo == 0) {
+      inventarioSlots[i].tipo = tipoItem;
+      inventarioSlots[i].cantidad = 1;
       return true;
     }
   }
@@ -67,10 +107,167 @@ void intentarCrafteo(int producto, std::map<int, int> &inventario) {
   }
 }
 
+Slot slotsAlquimia[3];
+Slot slotResultado;
+
+void verificarAlquimia(Slot slotsAlquimia[3], Slot &slotResultado) {
+
+  int a = slotsAlquimia[0].tipo;
+  int b = slotsAlquimia[1].tipo;
+  int c = slotsAlquimia[2].tipo;
+
+  if (a == 3 && b == 3 && c == 3)
+    slotResultado.tipo = 10;
+
+  else if (a == 2 && b == 2 && c == 2)
+    slotResultado.tipo = 11;
+
+  else
+    slotResultado.tipo = 0;
+}
+
+void iniciarArrastre(sf::Vector2f posMouseUI) {
+  int slotClick = -1;
+  float slotSize = 29.f;
+  float startX = (anchoVentana - 9 * slotSize) / 2.f;
+
+  float pergaminoAlto = 220.f;
+
+  for (int i = 0; i < 9; ++i) {
+    if (posMouseUI.x > startX + 3.3f + i * slotSize &&
+        posMouseUI.x < startX + 3.3f + (i + 1) * slotSize &&
+        posMouseUI.y > altoVentana - pergaminoAlto + 90.f &&
+        posMouseUI.y < altoVentana - pergaminoAlto + 90.f + slotSize) {
+      slotClick = i;
+      break;
+    }
+  }
+
+  if (slotClick != -1 && hotbar[slotClick].tipo != 0) {
+    estadoArrastre.itemArrastrado = hotbar[slotClick];
+    hotbar[slotClick].tipo = 0;
+    estadoArrastre.slotOrigen = slotClick;
+    estadoArrastre.arrastrando = true;
+  }
+
+  if (!estadoArrastre.arrastrando) {
+    for (int i = 0; i < 36; ++i) {
+      int col = i % 9;
+      int fila = i / 9;
+      float x = invX + col * invSlotSize;
+      float y = invY + fila * invSlotSize;
+      if (posMouseUI.x > x && posMouseUI.x < x + invSlotSize &&
+          posMouseUI.y > y && posMouseUI.y < y + invSlotSize) {
+        if (inventarioSlots[i].tipo != 0) {
+          estadoArrastre.itemArrastrado = inventarioSlots[i];
+          inventarioSlots[i] = Slot();
+          estadoArrastre.slotOrigen = i;
+          estadoArrastre.arrastrando = true;
+          estadoArrastre.origen = Arrastre::INVENTARIO;
+        }
+        break;
+      }
+    }
+  }
+
+  if (!estadoArrastre.arrastrando) {
+    for (int i = 0; i < 3; ++i) {
+      float x = alqX + i * alqSlotSize;
+      if (posMouseUI.x > x && posMouseUI.x < x + alqSlotSize &&
+          posMouseUI.y > alqY && posMouseUI.y < alqY + alqSlotSize) {
+        if (slotsAlquimia[i].tipo != 0) {
+          estadoArrastre.itemArrastrado = slotsAlquimia[i];
+          slotsAlquimia[i] = Slot();
+          estadoArrastre.slotOrigen = i;
+          estadoArrastre.arrastrando = true;
+          estadoArrastre.origen = Arrastre::ALQUIMIA;
+        }
+        break;
+      }
+    }
+  }
+}
+void soltarArrastre(sf::Vector2f posMouseUI) {
+  int slotClick = -1;
+  float slotSize = 29.f;
+  float startX = (anchoVentana - 9 * slotSize) / 2.f;
+
+  float pergaminoAlto = 220.f;
+
+  for (int i = 0; i < 9; ++i) {
+    if (posMouseUI.x > startX + 3.3f + i * slotSize &&
+        posMouseUI.x < startX + 3.3f + (i + 1) * slotSize &&
+        posMouseUI.y > altoVentana - pergaminoAlto + 90.f &&
+        posMouseUI.y < altoVentana - pergaminoAlto + 90.f + slotSize) {
+      slotClick = i;
+      break;
+    }
+  }
+
+  if (slotClick != -1 && estadoArrastre.arrastrando) {
+    if (hotbar[slotClick].tipo == 0) {
+      hotbar[slotClick] = estadoArrastre.itemArrastrado;
+    } else {
+      Slot temp = hotbar[slotClick];
+      hotbar[estadoArrastre.slotOrigen] = temp;
+      hotbar[slotClick] = estadoArrastre.itemArrastrado;
+      estadoArrastre.itemArrastrado = temp;
+    }
+    estadoArrastre.arrastrando = false; // ← agregar esto
+  }
+
+  if (slotClick == -1 && estadoArrastre.arrastrando) {
+    for (int i = 0; i < 36; ++i) {
+      int col = i % 9;
+      int fila = i / 9;
+      float x = invX + col * invSlotSize;
+      float y = invY + fila * invSlotSize;
+      if (posMouseUI.x > x && posMouseUI.x < x + invSlotSize &&
+          posMouseUI.y > y && posMouseUI.y < y + invSlotSize) {
+        inventarioSlots[i] = estadoArrastre.itemArrastrado;
+        estadoArrastre.arrastrando = false;
+        break;
+      }
+    }
+  }
+
+  if (estadoArrastre.arrastrando) {
+    for (int i = 0; i < 3; ++i) {
+      float x = alqX + i * alqSlotSize;
+      if (posMouseUI.x > x && posMouseUI.x < x + alqSlotSize &&
+          posMouseUI.y > alqY && posMouseUI.y < alqY + alqSlotSize) {
+        slotsAlquimia[i] = estadoArrastre.itemArrastrado;
+        verificarAlquimia(slotsAlquimia, slotResultado);
+        estadoArrastre.arrastrando = false;
+        break;
+      }
+    }
+  }
+
+  if (estadoArrastre.arrastrando) {
+    if (estadoArrastre.origen == Arrastre::HOTBAR)
+      hotbar[estadoArrastre.slotOrigen] = estadoArrastre.itemArrastrado;
+    else if (estadoArrastre.origen == Arrastre::INVENTARIO)
+      inventarioSlots[estadoArrastre.slotOrigen] =
+          estadoArrastre.itemArrastrado;
+    else if (estadoArrastre.origen == Arrastre::ALQUIMIA)
+      slotsAlquimia[estadoArrastre.slotOrigen] = estadoArrastre.itemArrastrado;
+  }
+  estadoArrastre.arrastrando = false;
+  estadoArrastre.slotOrigen = -1;
+
+  estadoArrastre.arrastrando = false;
+  estadoArrastre.slotOrigen = -1;
+}
+
 int main() {
-  Puño objeto1;
-  objeto1.PuñoVelminado = 1.f;
-  objeto1.PuñoNivelMinado = 5;
+
+  float MitadAncho = anchoVentana / 2.f;
+  float MitadAlto = altoVentana / 2.f;
+
+  Pu objeto1;
+  objeto1.PuVelminado = 1.f;
+  objeto1.PuNivelminado = 5;
 
   Pala objeto2;
   objeto2.PVelminado = 0.5f;
@@ -80,14 +277,19 @@ int main() {
   objeto.Velminado = 0.5f;
   objeto.Nivelminado = 2;
 
-  sf::RenderWindow window(sf::VideoMode(800, 600), "My Window");
-  sf::View view(sf::FloatRect(0, 0, 800, 600));
-  sf::View uiView(sf::FloatRect(0, 0, 800, 600));
+  sf::RenderWindow window(sf::VideoMode(anchoVentana, altoVentana),
+                          "yeamaracuyea");
+  anchoVentana = window.getSize().x;
+  altoVentana = window.getSize().y;
+  sf::View view(sf::FloatRect(0, 0, anchoVentana, altoVentana));
+  sf::View uiView(sf::FloatRect(0, 0, anchoVentana, altoVentana));
 
   sf::Font font;
   if (!font.loadFromFile(
           "/usr/share/fonts/liberation/LiberationSans-Regular.ttf"))
     return -1;
+
+  // variables
 
   float HitboxSize = 10.f;
   float rectWidth = 32.f;
@@ -120,23 +322,41 @@ int main() {
   bool inventarioAbierto = false;
   sf::Vector2f playerPos(playerX, playerY);
 
-  for (int i = 0; i < FILAS; ++i) {
-    for (int j = 0; j < COLS; ++j) {
-      if (i >= FilaPiedra)
-        mundo[i][j] = 2;
-      else if (i == FilaP) {
-        mundo[i][j] = 5;
-      } else if (i >= FilaP)
-        mundo[i][j] = 1;
-      else
-        mundo[i][j] = 0;
+  srand(time(NULL));
+  float offsetOnda = (rand() % 1000) / 100.f;
 
-      if ((i >= 8 && i <= 13) && j % 7 == 0) {
-        mundo[i][j] = 3;
+  int mapaAlturas[COLS];
+
+  for (int j = 0; j < COLS; ++j) {
+
+    int alturaSuperficie =
+        20 + (int)(3.0 * sin(0.08 * j + offsetOnda) + 2.0 * cos(0.04 * j));
+    mapaAlturas[j] = alturaSuperficie;
+
+    for (int i = 0; i < FILAS; ++i) {
+      if (i < alturaSuperficie) {
+        mundo[i][j] = 0;
+      } else if (i == alturaSuperficie) {
+        mundo[i][j] = 5;
+      } else if (i > alturaSuperficie && i < alturaSuperficie + 8) {
+        mundo[i][j] = 1;
+      } else {
+        mundo[i][j] = 2;
       }
-      if ((i >= 5 && i <= 9) && (j % 7 == 0 || j % 7 == 1 || j % 7 == 6 ||
-                                 j % 7 == 5 || j % 7 == 2)) {
-        mundo[i][j] = 4;
+    }
+  }
+
+  for (int j = 3; j < COLS - 3; ++j) {
+    if (rand() % 100 < 8) {
+      int alturaSuelo = mapaAlturas[j];
+
+      mundo[alturaSuelo - 1][j] = 3;
+      mundo[alturaSuelo - 2][j] = 3;
+
+      for (int hojaY = alturaSuelo - 5; hojaY <= alturaSuelo - 3; ++hojaY) {
+        for (int hojaX = j - 1; hojaX <= j + 1; ++hojaX) {
+          mundo[hojaY][hojaX] = 4;
+        }
       }
     }
   }
@@ -148,10 +368,18 @@ int main() {
     return -1;
   sf::Sprite PicoSprite(Picotextura);
 
+  sf::Sprite PicoUISprite(Picotextura);
+  PicoUISprite.setScale(29.f / Picotextura.getSize().x,
+                        29.f / Picotextura.getSize().y);
+
   sf::Texture Palatextura;
   if (!Palatextura.loadFromFile("models/Pala.png"))
     return -1;
   sf::Sprite PalaSprite(Palatextura);
+
+  sf::Sprite PalaUISprite(Palatextura);
+  PalaUISprite.setScale(29.f / Palatextura.getSize().x,
+                        29.f / Palatextura.getSize().y);
 
   sf::Texture pizquierdaTextura;
   if (!pizquierdaTextura.loadFromFile("models/Pizquierda.png"))
@@ -167,17 +395,12 @@ int main() {
   pderechaSprite.setScale(PlayerSize, PlayerSize);
   pderechaSprite.setTextureRect(sf::IntRect(0, 0, 128, 128));
 
-  sf::Texture puñoTextura;
-  if (!puñoTextura.loadFromFile("models/Puño.png"))
-    return -1;
-  sf::Sprite puñoSprite(puñoTextura);
-
   sf::Texture fondoTextura;
   if (!fondoTextura.loadFromFile("models/Fondo.png"))
     return -1;
   sf::Sprite fondoSprite(fondoTextura);
-  fondoSprite.setScale(800.f / fondoTextura.getSize().x,
-                       600.f / fondoTextura.getSize().y);
+  fondoSprite.setScale(anchoVentana / fondoTextura.getSize().x,
+                       altoVentana / fondoTextura.getSize().y);
 
   sf::Texture Tierra;
   if (!Tierra.loadFromFile("models/Tierra.png"))
@@ -186,12 +409,19 @@ int main() {
   TierraSprite.setScale(rectWidth / Tierra.getSize().x,
                         rectHeight / Tierra.getSize().y);
 
+  sf::Sprite TierraUISprite(Tierra);
+  TierraUISprite.setScale(29.f / Tierra.getSize().x, 29.f / Tierra.getSize().y);
+
   sf::Texture Tierra2;
   if (!Tierra2.loadFromFile("models/Tierra2.png"))
     return -1;
   sf::Sprite Tierra2Sprite(Tierra2);
   Tierra2Sprite.setScale(rectWidth / Tierra2.getSize().x,
                          rectHeight / Tierra2.getSize().y);
+
+  sf::Sprite Tierra2UISprite(Tierra2);
+  Tierra2UISprite.setScale(29.f / Tierra2.getSize().x,
+                           29.f / Tierra2.getSize().y);
 
   sf::Texture Roca;
   if (!Roca.loadFromFile("models/Roca.png"))
@@ -200,12 +430,18 @@ int main() {
   RocaSprite.setScale(rectWidth / Roca.getSize().x,
                       rectHeight / Roca.getSize().y);
 
+  sf::Sprite RocaUISprite(Roca);
+  RocaUISprite.setScale(29.f / Roca.getSize().x, 29.f / Roca.getSize().y);
+
   sf::Texture Madera;
   if (!Madera.loadFromFile("models/Madera.png"))
     return -1;
   sf::Sprite MaderaSprite(Madera);
   MaderaSprite.setScale(rectWidth / Madera.getSize().x,
                         rectHeight / Madera.getSize().y);
+
+  sf::Sprite MaderaUISprite(Madera);
+  MaderaUISprite.setScale(29.f / Madera.getSize().x, 29.f / Madera.getSize().y);
 
   sf::Texture Hoja;
   if (!Hoja.loadFromFile("models/Hoja.png"))
@@ -214,10 +450,28 @@ int main() {
   HojaSprite.setScale(rectWidth / Hoja.getSize().x,
                       rectHeight / Hoja.getSize().y);
 
+  sf::Sprite HojaUISprite(Hoja);
+  HojaUISprite.setScale(29.f / Hoja.getSize().x, 29.f / Hoja.getSize().y);
+
+  sf::Texture pergaminoTextura;
+  if (!pergaminoTextura.loadFromFile("models/Pergamino.png"))
+    return -1;
+  sf::Sprite pergaminoSprite(pergaminoTextura);
+
+  sf::Texture alquimiaTextura;
+  if (!alquimiaTextura.loadFromFile("models/Alquimia.png"))
+    return -1;
+  sf::Sprite alquimiaSprite(alquimiaTextura);
+
+  sf::Texture inventarioTextura;
+  if (!inventarioTextura.loadFromFile("models/Inventario.png")) {
+    return -1;
+  }
+  sf::Sprite inventarioSprite(inventarioTextura);
+
   sf::Clock animClock;
   int frameActual = 0;
   bool mirandoDerecha = true;
-  std::map<int, int> inventario;
 
   for (int i = 0; i < 9; ++i) {
     hotbar[i].tipo = 0;
@@ -225,6 +479,12 @@ int main() {
   }
 
   int slotSeleccionado = 0;
+
+  float anchoAlquimia = 288.f;
+  float altoAlquimia = 193.f;
+
+  float inventarioAncho = 408.f;
+  float inventarioAlto = 390.f;
 
   while (window.isOpen()) {
 
@@ -234,6 +494,48 @@ int main() {
       if (event.type == sf::Event::Closed)
         window.close();
 
+      if (event.type == sf::Event::Resized) {
+        anchoVentana = event.size.width;
+        altoVentana = event.size.height;
+        view.setSize(anchoVentana, altoVentana);
+        uiView = sf::View(sf::FloatRect(0, 0, anchoVentana, altoVentana));
+
+        MitadAncho = anchoVentana / 2.f;
+        MitadAlto = altoVentana / 2.f;
+        fondoSprite.setScale(anchoVentana / fondoTextura.getSize().x,
+                             altoVentana / fondoTextura.getSize().y);
+      }
+
+      sf::Vector2f posMouseUI(event.mouseButton.x, event.mouseButton.y);
+
+      if (event.type == sf::Event::MouseButtonPressed &&
+          event.mouseButton.button == sf::Mouse::Left) {
+
+        bool recogioCrafteo = false;
+
+        if (inventarioAbierto) {
+          float resX = alqX + 3 * alqSlotSize + 69.8f;
+          if (posMouseUI.x > resX && posMouseUI.x < resX + alqSlotSize &&
+              posMouseUI.y > alqY && posMouseUI.y < alqY + alqSlotSize) {
+            if (slotResultado.tipo != 0) {
+              añadirAHotbar(slotResultado.tipo);
+              slotResultado.tipo = 0;
+              slotsAlquimia[0] = Slot();
+              slotsAlquimia[1] = Slot();
+              slotsAlquimia[2] = Slot();
+              recogioCrafteo = true;
+            }
+          }
+        }
+
+        if (!recogioCrafteo)
+          iniciarArrastre(posMouseUI);
+      }
+
+      if (event.type == sf::Event::MouseButtonReleased &&
+          event.mouseButton.button == sf::Mouse::Left)
+        soltarArrastre(posMouseUI);
+
       if (event.type == sf::Event::KeyPressed) {
         if (event.key.code == sf::Keyboard::E) {
           inventarioAbierto = !inventarioAbierto;
@@ -242,13 +544,6 @@ int main() {
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::K)) {
           int tipoItem = 1;
           añadirAHotbar(tipoItem);
-        }
-
-        if (event.key.code == sf::Keyboard::C) {
-          intentarCrafteo(2, inventario);
-        }
-        if (event.key.code == sf::Keyboard::V) {
-          intentarCrafteo(3, inventario);
         }
       }
     }
@@ -280,24 +575,21 @@ int main() {
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Num9))
       slotSeleccionado = 8;
 
-    if (hotbar[slotSeleccionado].tipo == 1) {
-      nivelActual = objeto1.PuñoNivelMinado;
-      velActual = objeto1.PuñoVelminado;
-    } else if (hotbar[slotSeleccionado].tipo == 2) {
+    if (hotbar[slotSeleccionado].tipo == 11) {
       nivelActual = objeto.Nivelminado;
       velActual = objeto.Velminado;
       PicoSprite.setPosition(playerPos.x + HitboxSize,
                              playerPos.y - HitboxSize * 4);
 
-    } else if (hotbar[slotSeleccionado].tipo == 3) {
+    } else if (hotbar[slotSeleccionado].tipo == 10) {
       nivelActual = objeto2.Pnivelminado;
       velActual = objeto2.PVelminado;
       PalaSprite.setPosition(playerPos.x + HitboxSize,
                              playerPos.y - HitboxSize * 4);
 
     } else if (hotbar[slotSeleccionado].tipo == 0) {
-      nivelActual = objeto1.PuñoNivelMinado;
-      velActual = objeto1.PuñoVelminado;
+      nivelActual = objeto1.PuNivelminado;
+      velActual = objeto1.PuVelminado;
     }
 
     int fila = frameActual;
@@ -329,16 +621,13 @@ int main() {
           int herramientaActual = hotbar[slotSeleccionado].tipo;
           bool puedeMinar = false;
 
-          if (herramientaActual == 2) {
+          if (herramientaActual == 11) {
             if (tipoBloque == 2)
               puedeMinar = true;
-          } else if (herramientaActual == 3) {
+          } else if (herramientaActual == 10) {
             if (tipoBloque == 1 || tipoBloque == 5)
               puedeMinar = true;
-          } else if (herramientaActual == 1) {
-            if (tipoBloque == 3 || tipoBloque == 4)
-              puedeMinar = true;
-          } else if (herramientaActual == 0) {
+          } else {
             if (tipoBloque == 3 || tipoBloque == 4 || tipoBloque == 5 ||
                 tipoBloque == 1)
               puedeMinar = true;
@@ -346,7 +635,7 @@ int main() {
 
           if (puedeMinar && nivelActual >= tipoBloque) {
             mundo[bloqueRow][bloqueCol] = 0;
-            inventario[tipoBloque]++;
+            añadirAHotbar(tipoBloque);
           }
 
           minaCol = -1;
@@ -449,23 +738,27 @@ int main() {
     window.clear(sf::Color::Black);
     window.setView(view);
 
-    fondoSprite.setPosition(view.getCenter().x - 400, view.getCenter().y - 300);
+    fondoSprite.setPosition(view.getCenter().x - MitadAncho,
+                            view.getCenter().y - MitadAlto);
     window.draw(fondoSprite);
 
     window.draw(PalaSprite);
     window.draw(PicoSprite);
 
-    int colInicio = std::max(0, (int)((view.getCenter().x - 400) / rectWidth));
-    int colFin =
-        std::min(COLS, (int)((view.getCenter().x + 400) / rectWidth) + 1);
+    int colInicio =
+        std::max(0, (int)((view.getCenter().x - MitadAncho) / rectWidth));
+    int colFin = std::min(
+        COLS, (int)((view.getCenter().x + MitadAncho) / rectWidth) + 1);
     int filaInicio =
-        std::max(0, (int)((view.getCenter().y - 300) / rectHeight));
-    int filaFin =
-        std::min(FILAS, (int)((view.getCenter().y + 300) / rectHeight) + 1);
+        std::max(0, (int)((view.getCenter().y - MitadAlto) / rectHeight));
+    int filaFin = std::min(
+        FILAS, (int)((view.getCenter().y + MitadAlto) / rectHeight) + 1);
 
     for (int i = filaInicio; i < filaFin; ++i) {
       for (int j = colInicio; j < colFin; ++j) {
         if (mundo[i][j] == 1) {
+          TierraSprite.setScale(rectWidth / Tierra.getSize().x,
+                                rectHeight / Tierra.getSize().y);
           TierraSprite.setPosition(j * rectWidth, i * rectHeight);
           window.draw(TierraSprite);
         } else if (mundo[i][j] == 5) {
@@ -478,6 +771,8 @@ int main() {
           MaderaSprite.setPosition(j * rectWidth, i * rectHeight);
           window.draw(MaderaSprite);
         } else if (mundo[i][j] == 4) {
+          HojaSprite.setScale(rectWidth / Hoja.getSize().x,
+                              rectHeight / Hoja.getSize().y);
           HojaSprite.setPosition(j * rectWidth, i * rectHeight);
           window.draw(HojaSprite);
         }
@@ -491,65 +786,191 @@ int main() {
 
     window.setView(uiView);
 
-    float slotSize = 50.f;
-    float startX = (800 - 9 * slotSize) / 2.f;
+    //  Inv
+
+    float slotSize = 29.f;
+    float startX = (anchoVentana - 9 * slotSize) / 2.f;
+
+    float pergaminoAlto = 220.f;
+    float pergaminoAncho = pergaminoAlto * (1536.f / 1024.f);
+    pergaminoSprite.setScale(pergaminoAncho / pergaminoTextura.getSize().x,
+                             pergaminoAlto / pergaminoTextura.getSize().y);
+    pergaminoSprite.setPosition(startX - (pergaminoAncho - 9 * slotSize) / 2.f,
+                                altoVentana - pergaminoAlto - 5.f);
+    window.draw(pergaminoSprite);
 
     for (int i = 0; i < 9; ++i) {
       sf::RectangleShape slot(sf::Vector2f(slotSize, slotSize));
-      slot.setPosition(startX + i * slotSize, 600 - slotSize - 10);
-      slot.setFillColor(sf::Color(100, 100, 100, 180));
-      slot.setOutlineThickness(2);
-      slot.setOutlineColor(sf::Color::White);
+      slot.setPosition(startX + 3.3f + i * slotSize,
+                       altoVentana - pergaminoAlto + 90.f);
+      slot.setFillColor(sf::Color(80, 50, 20, 20));
+      slot.setOutlineThickness(0.5);
       window.draw(slot);
 
       if (hotbar[i].tipo == 1) {
-        puñoSprite.setScale(0.3f, 0.3f);
-        puñoSprite.setPosition(startX + i * slotSize + 5,
-                               600 - slotSize - 10 + 9);
-        window.draw(puñoSprite);
-      } else if (hotbar[i].tipo == 2) {
-        PicoSprite.setScale(0.3f, 0.3f);
-        PicoSprite.setPosition(startX + i * slotSize + 5,
-                               600 - slotSize - 10 + 9);
-        window.draw(PicoSprite);
+        TierraUISprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                                   altoVentana - pergaminoAlto + 92.f);
+        TierraSprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                                 altoVentana - pergaminoAlto + 92.f);
+        window.draw(TierraUISprite);
+      } else if (hotbar[i].tipo == 4) {
+        HojaUISprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                                 altoVentana - pergaminoAlto + 92.f);
+        HojaSprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                               altoVentana - pergaminoAlto + 92.f);
+        window.draw(HojaUISprite);
+      } else if (hotbar[i].tipo == 5) {
+        Tierra2UISprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                                    altoVentana - pergaminoAlto + 92.f);
+        Tierra2Sprite.setScale(rectWidth / Tierra2.getSize().x,
+                               rectHeight / Tierra2.getSize().y);
+        window.draw(Tierra2UISprite);
       } else if (hotbar[i].tipo == 3) {
-        PalaSprite.setScale(0.3f, 0.3f);
-        PalaSprite.setPosition(startX + i * slotSize + 5,
-                               600 - slotSize - 10 + 9);
+        MaderaUISprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                                   altoVentana - pergaminoAlto + 92.f);
+        window.draw(MaderaUISprite);
+      }
+
+      if (hotbar[i].cantidad > 1) {
+        sf::Text cantidad;
+        cantidad.setFont(font);
+        cantidad.setCharacterSize(12);
+        cantidad.setFillColor(sf::Color::White);
+        cantidad.setString(std::to_string(hotbar[i].cantidad));
+        cantidad.setPosition(startX + 3.3f + i * slotSize + slotSize - 14.f,
+                             altoVentana - pergaminoAlto + 90.f + slotSize -
+                                 14.f);
+        window.draw(cantidad);
+      }
+
+      if (hotbar[i].tipo == 10) {
+        PicoSprite.setScale(0.2f, 0.2f);
+        PicoSprite.setPosition(startX + 0.01f + i * slotSize + 5.f,
+                               altoVentana - pergaminoAlto + 95.f);
+        window.draw(PicoSprite);
+      } else if (hotbar[i].tipo == 11) {
+        PalaSprite.setScale(0.2f, 0.2f);
+        PalaSprite.setPosition(startX + 0.5f + i * slotSize + 5.f,
+                               altoVentana - pergaminoAlto + 95.f);
         window.draw(PalaSprite);
       }
     }
 
-    if (inventarioAbierto) {
-      int startY = 150;
-      for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j) {
-          sf::RectangleShape square(sf::Vector2f(slotSize, slotSize));
-          square.setPosition(startX + j * slotSize, startY + i * slotSize);
-          square.setFillColor(sf::Color(150, 150, 150, 180));
-          window.draw(square);
+    float invSpriteX = anchoVentana / 2.f - inventarioAncho / 2.f;
+    float invSpriteY = altoVentana / 3.f - inventarioAlto / 2.f;
+    float offsetX = 50.f;
+    float offsetY = 113.f;
 
-          int index = i * 3 + j;
-          if (index < inventario.size()) {
-            Slot item = hotbar[index];
-            if (item.tipo == 1) {
-              puñoSprite.setScale(0.2f, 0.2f);
-              puñoSprite.setPosition(startX + j * slotSize + 5,
-                                     startY + i * slotSize + 5);
-              window.draw(puñoSprite);
-            } else if (item.tipo == 2) {
-              PicoSprite.setScale(0.2f, 0.2f);
-              PicoSprite.setPosition(startX + j * slotSize + 5,
-                                     startY + i * slotSize + 5);
+    invX = invSpriteX + offsetX;
+    invY = invSpriteY + offsetY;
+
+    float alqSpriteX = anchoVentana / 2.f - anchoAlquimia / 2.f;
+    float alqSpriteY = altoVentana / 2.11f - altoAlquimia / 4.f;
+    float alqOffsetX = 39.8f;
+    float alqOffsetY = 76.f;
+
+    alqX = alqSpriteX + alqOffsetX;
+    alqY = alqSpriteY + alqOffsetY;
+
+    if (inventarioAbierto) {
+
+      alquimiaSprite.setScale(anchoAlquimia / alquimiaTextura.getSize().x,
+                              altoAlquimia / alquimiaTextura.getSize().y);
+      alquimiaSprite.setPosition(anchoVentana / 2.f - anchoAlquimia / 2.f,
+                                 altoVentana / 2.11f - altoAlquimia / 4.f);
+      window.draw(alquimiaSprite);
+
+      inventarioSprite.setScale(inventarioAncho / inventarioTextura.getSize().x,
+                                inventarioAlto / inventarioTextura.getSize().y);
+      inventarioSprite.setPosition(anchoVentana / 2.f - inventarioAncho / 2.f,
+                                   altoVentana / 2.97f - inventarioAlto / 2.f);
+      window.draw(inventarioSprite);
+
+      for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 9; ++j) {
+          int index = i * 9 + j;
+          sf::RectangleShape slot(sf::Vector2f(invSlotSize, invSlotSize));
+          slot.setPosition(invX + j * invSlotSize, invY + i * invSlotSize);
+          slot.setFillColor(sf::Color(0, 0, 0, 0));
+          slot.setOutlineThickness(0.5);
+          window.draw(slot);
+
+          if (index < 36 && inventarioSlots[index].tipo != 0) {
+            float sx = invX + j * invSlotSize + 2.f;
+            float sy = invY + i * invSlotSize + 2.f;
+            float sc = invSlotSize / 32.f;
+
+            if (inventarioSlots[index].tipo == 1) {
+              TierraUISprite.setPosition(sx, sy);
+              window.draw(TierraUISprite);
+            } else if (inventarioSlots[index].tipo == 4) {
+              HojaUISprite.setPosition(sx, sy);
+              window.draw(HojaUISprite);
+            } else if (inventarioSlots[index].tipo == 5) {
+              Tierra2UISprite.setPosition(sx, sy);
+              window.draw(Tierra2UISprite);
+            } else if (inventarioSlots[index].tipo == 2) {
+              RocaUISprite.setPosition(sx, sy);
+              window.draw(RocaUISprite);
+            } else if (inventarioSlots[index].tipo == 3) {
+              MaderaUISprite.setPosition(sx, sy);
+              window.draw(MaderaUISprite);
+            } else if (inventarioSlots[index].tipo == 11) {
+              PicoSprite.setScale(sc, sc);
+              PicoSprite.setPosition(sx, sy);
               window.draw(PicoSprite);
-            } else if (item.tipo == 3) {
-              PalaSprite.setScale(0.2f, 0.2f);
-              PalaSprite.setPosition(startX + j * slotSize + 5,
-                                     startY + i * slotSize + 5);
+            } else if (inventarioSlots[index].tipo == 10) {
+              PalaSprite.setScale(sc, sc);
+              PalaSprite.setPosition(sx, sy);
               window.draw(PalaSprite);
             }
           }
         }
+      }
+
+      for (int i = 0; i < 3; ++i) {
+        sf::RectangleShape slot(sf::Vector2f(alqSlotSize, alqSlotSize));
+        slot.setPosition(alqX + i * alqSlotSize, alqY);
+        slot.setFillColor(sf::Color(0, 0, 0, 0));
+        slot.setOutlineThickness(0.5);
+        window.draw(slot);
+
+        if (slotsAlquimia[i].tipo != 0) {
+          float sx = alqX + i * alqSlotSize + 2.f;
+          float sy = alqY + 2.f;
+          float sc = alqSlotSize / 32.f;
+
+          if (slotsAlquimia[i].tipo == 1) {
+            TierraUISprite.setPosition(sx, sy);
+            window.draw(TierraUISprite);
+          } else if (slotsAlquimia[i].tipo == 4) {
+            HojaUISprite.setPosition(sx, sy);
+            window.draw(HojaUISprite);
+          } else if (slotsAlquimia[i].tipo == 3) {
+            MaderaUISprite.setPosition(sx, sy);
+            window.draw(MaderaUISprite);
+          } else if (slotsAlquimia[i].tipo == 2) {
+            RocaUISprite.setPosition(sx, sy);
+            window.draw(RocaUISprite);
+          } else if (slotsAlquimia[i].tipo == 5) {
+            Tierra2UISprite.setPosition(sx, sy);
+            window.draw(Tierra2UISprite);
+          }
+        }
+      }
+
+      sf::RectangleShape slotRes(sf::Vector2f(alqSlotSize, alqSlotSize));
+      slotRes.setPosition(alqX + 3 * alqSlotSize + 69.8f, alqY);
+      slotRes.setFillColor(sf::Color(0, 0, 0, 0));
+      slotRes.setOutlineThickness(0.5);
+      window.draw(slotRes);
+
+      if (slotResultado.tipo == 10) {
+        PalaUISprite.setPosition(alqX + 3 * alqSlotSize + 71.f, alqY + 2.f);
+        window.draw(PalaUISprite);
+      } else if (slotResultado.tipo == 11) {
+        PicoUISprite.setPosition(alqX + 3 * alqSlotSize + 71.f, alqY + 2.f);
+        window.draw(PicoUISprite);
       }
     }
 
@@ -557,12 +978,6 @@ int main() {
     texto.setFont(font);
     texto.setCharacterSize(16);
     texto.setFillColor(sf::Color::White);
-    texto.setString("Tierra: " + std::to_string(inventario[1]) +
-                    " | Tierra2: " + std::to_string(inventario[5]) +
-                    " | Roca: " + std::to_string(inventario[2]) +
-                    " | Madera: " + std::to_string(inventario[3]) +
-                    " | Hoja: " + std::to_string(inventario[4]));
-    texto.setPosition(10, 10);
     window.draw(texto);
 
     window.display();
