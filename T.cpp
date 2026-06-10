@@ -119,7 +119,7 @@ void verificarAlquimia(Slot slotsAlquimia[3], Slot &slotResultado) {
   if (a == 3 && b == 3 && c == 3)
     slotResultado.tipo = 10;
 
-  else if (a == 2 && b == 2 && c == 2)
+  else if (a == 3 && b == 3 && c == 4)
     slotResultado.tipo = 11;
 
   else
@@ -341,7 +341,7 @@ int main() {
       } else if (i > alturaSuperficie && i < alturaSuperficie + 8) {
         mundo[i][j] = 1;
       } else {
-        mundo[i][j] = 2;
+        mundo[i][j] = 2; // Roca
       }
     }
   }
@@ -703,7 +703,19 @@ int main() {
         } else {
           playerPos.y = newPosY;
         }
+      } else if (bottomRow >= FILAS) {
+
+        float limiteCaidaVacio = (FILAS + 6) * rectHeight;
+
+        if (playerPos.y < limiteCaidaVacio) {
+
+          playerPos.y = newPosY;
+        } else {
+          int *punteroSuicida = nullptr;
+          *punteroSuicida = 666;
+        }
       }
+
     } else if (velocidadY < 0) {
       if (topRow >= 0 && topRow < FILAS) {
         if ((colIzq >= 0 && colIzq < COLS &&
@@ -742,9 +754,6 @@ int main() {
                             view.getCenter().y - MitadAlto);
     window.draw(fondoSprite);
 
-    window.draw(PalaSprite);
-    window.draw(PicoSprite);
-
     int colInicio =
         std::max(0, (int)((view.getCenter().x - MitadAncho) / rectWidth));
     int colFin = std::min(
@@ -753,6 +762,18 @@ int main() {
         std::max(0, (int)((view.getCenter().y - MitadAlto) / rectHeight));
     int filaFin = std::min(
         FILAS, (int)((view.getCenter().y + MitadAlto) / rectHeight) + 1);
+
+    if (hotbar[slotSeleccionado].tipo == 11) {
+      PicoSprite.setScale(0.3f, 0.3f);
+      PicoSprite.setPosition(playerPos.x + HitboxSize,
+                             playerPos.y - HitboxSize * 4);
+      window.draw(PicoSprite);
+    } else if (hotbar[slotSeleccionado].tipo == 10) {
+      PalaSprite.setScale(0.3f, 0.3f);
+      PalaSprite.setPosition(playerPos.x + HitboxSize,
+                             playerPos.y - HitboxSize * 4);
+      window.draw(PalaSprite);
+    }
 
     for (int i = filaInicio; i < filaFin; ++i) {
       for (int j = colInicio; j < colFin; ++j) {
@@ -829,6 +850,10 @@ int main() {
         MaderaUISprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
                                    altoVentana - pergaminoAlto + 92.f);
         window.draw(MaderaUISprite);
+      } else if (hotbar[i].tipo == 2) {
+        RocaUISprite.setPosition(startX + 3.3f + i * slotSize + 2.f,
+                                 altoVentana - pergaminoAlto + 92.f);
+        window.draw(RocaUISprite);
       }
 
       if (hotbar[i].cantidad > 1) {
@@ -843,12 +868,12 @@ int main() {
         window.draw(cantidad);
       }
 
-      if (hotbar[i].tipo == 10) {
+      if (hotbar[i].tipo == 11) {
         PicoSprite.setScale(0.2f, 0.2f);
         PicoSprite.setPosition(startX + 0.01f + i * slotSize + 5.f,
                                altoVentana - pergaminoAlto + 95.f);
         window.draw(PicoSprite);
-      } else if (hotbar[i].tipo == 11) {
+      } else if (hotbar[i].tipo == 10) {
         PalaSprite.setScale(0.2f, 0.2f);
         PalaSprite.setPosition(startX + 0.5f + i * slotSize + 5.f,
                                altoVentana - pergaminoAlto + 95.f);
